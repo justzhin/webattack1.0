@@ -1,17 +1,39 @@
 const express = require('express');
-const Redis = require('ioredis');
-
 const app = express();
+
 app.use(express.json());
 app.use(require('cors')());
 
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+// In-memory store (import dari attack.js)
+const { attacks } = require('./attack.js') || { attacks: new Map() };
 
-// Get attack status
-app.get('/api/status/:id', async (req, res) => {
+// GET /api/status - Get attack status
+app.get('/api/status', (req, res) => {
     try {
-        const attackId = req.params.id;
-        const attackData = await redis.get(`attack:${attackId}`);
+        const attackId = req.query.id;
+        
+        if (!attackId) {
+            // Return all attacks
+            const allAttacks = Array.from(attacks.entries()).map(([id, data]) => ({
+                id,
+                url: data.url,
+                active: data.active,
+                requestsSent: data.requestsSent,
+                successRate: data.requestsSent > 0 
+                    ? ((data.requestsSuccess / data.requestsSent) * 100).toFixed(2)
+                    : 0,
+                startTime: new Date(data.startTime).toLocaleTimeString()
+            }));
+            
+            return res.json({
+                success: true,
+                count: allAttacks.length,
+                attacks: allAttacks
+            });
+        }
+        
+        // Specific attack
+        const attackData = attacks.get(attackId);
         
         if (!attackData) {
             return res.status(404).json({ 
@@ -20,33 +42,33 @@ app.get('/api/status/:id', async (req, res) => {
             });
         }
         
-        const attack = JSON.parse(attackData);
         const now = Date.now();
-        const elapsed = Math.floor((now - attack.startTime) / 1000);
-        const remaining = Math.max(0, Math.floor((attack.endTime - now) / 1000));
+        const elapsed = Math.floor((now - attackData.startTime) / 1000);
+        const remaining = Math.max(0, Math.floor((attackData.endTime - now) / 1000));
         
-        const successRate = attack.requestsSent > 0 
-            ? ((attack.requestsSuccess / attack.requestsSent) * 100).toFixed(2)
+        const successRate = attackData.requestsSent > 0 
+            ? ((attackData.requestsSuccess / attackData.requestsSent) * 100).toFixed(2)
             : 0;
         
         res.json({
             success: true,
-            attackId: attack.id,
-            url: attack.url,
-            intensity: attack.intensity,
-            active: attack.active,
+            attackId: attackData.id,
+            url: attackData.url,
+            intensity: attackData.intensity,
+            active: attackData.active,
             elapsedTime: elapsed,
             remainingTime: remaining,
-            requestsSent: attack.requestsSent,
-            requestsSuccess: attack.requestsSuccess,
-            requestsFailed: attack.requestsFailed,
+            requestsSent: attackData.requestsSent,
+            requestsSuccess: attackData.requestsSuccess,
+            requestsFailed: attackData.requestsFailed,
             successRate: successRate,
-            requestsPerSecond: elapsed > 0 ? (attack.requestsSent / elapsed).toFixed(2) : 0,
-            startTime: new Date(attack.startTime).toISOString(),
-            endTime: new Date(attack.endTime).toISOString()
+            requestsPerSecond: elapsed > 0 ? (attackData.requestsSent / elapsed).toFixed(2) : 0,
+            startTime: new Date(attackData.startTime).toISOString(),
+            estimatedCompletion: new Date(attackData.endTime).toISOString()
         });
         
     } catch (error) {
+        console.error('Status error:', error);
         res.status(500).json({ 
             success: false, 
             error: error.message 
@@ -54,77 +76,21 @@ app.get('/api/status/:id', async (req, res) => {
     }
 });
 
-// System status
-app.get('/api/system', async (req, res) => {
-    try {
-        const keys = await redis.keys('attack:*');
-        const attacks = [];
-        
-        for (const key of keys.slice(0, 10)) {
-            const data = await redis.get(key);
-            if (data) {
-                const attack = JSON.parse(data);
-                attacks.push({
-                    id: attack.id,
-                    url: attack.url,
-                    active: attack.active,
-                    requestsSent: attack.requestsSent,
-                    successRate: ((attack.requestsSuccess / attack.requestsSent) * 100).toFixed(2)
-                });
-            }
-        }
-        
-        res.json({
-            success: true,
-            system: 'NOXA DDoS Panel v6.0',
-            status: 'operational',
-            timestamp: new Date().toISOString(),
-            uptime: process.uptime(),
-            redis: 'connected',
-            activeAttacks: attacks.filter(a => a.active).length,
-            totalAttacks: attacks.length,
-            recentAttacks: attacks
-        });
-        
-    } catch (error) {
-        res.status(500).json({ 
-            success: false, 
-            error: error.message 
-        });
-    }
-});
-
-// List all attacks
-app.get('/api/status', async (req, res) => {
-    try {
-        const keys = await redis.keys('attack:*');
-        const attacks = [];
-        
-        for (const key of keys) {
-            const data = await redis.get(key);
-            if (data) {
-                attacks.push(JSON.parse(data));
-            }
-        }
-        
-        res.json({
-            success: true,
-            count: attacks.length,
-            attacks: attacks.map(a => ({
-                id: a.id,
-                url: a.url,
-                active: a.active,
-                requestsSent: a.requestsSent,
-                startTime: new Date(a.startTime).toISOString()
-            }))
-        });
-        
-    } catch (error) {
-        res.status(500).json({ 
-            success: false, 
-            error: error.message 
-        });
-    }
+// GET /api/system - System status
+app.get('/api/system', (req, res) => {
+    const activeAttacks = Array.from(attacks.values()).filter(a => a.active).length;
+    
+    res.json({
+        success: true,
+        system: 'NOXA DDoS Panel v7.0',
+        status: 'operational',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        memoryUsage: process.memoryUsage(),
+        nodeVersion: process.version,
+        activeAttacks: activeAttacks,
+        totalAttacks: attacks.size
+    });
 });
 
 module.exports = app;
