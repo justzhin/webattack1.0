@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOXA Visitor Booster v3.0</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #10b981;
+            --primary-dark: #059669;
+            --secondary: #3b82f6;
+            --danger: #ef4444;
+            --dark: #111827;
+            --darker: #0a0f1c;
+            --light: #f9fafb;
+            --gray: #6b7280;
+            --border: #374151;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, var(--darker) 0%, var(--dark) 100%);
+            color: var(--light);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 20px;
+            border-bottom: 2px solid var(--border);
+        }
+        
+        .logo {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: var(--gray);
+            font-size: 1.1rem;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .panel {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .panel-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .panel-title i {
+            font-size: 1.5rem;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--light);
+            font-weight: 500;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 12px 15px;
+            background: rgba(17, 24, 39, 0.8);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--light);
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
+        
+        .range-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .range-value {
+            min-width: 60px;
+            text-align: center;
+            padding: 5px 10px;
+            background: var(--dark);
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .btn {
+            padding: 14px 25px;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(90deg, var(--danger), #dc2626);
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(239, 68, 68, 0.3);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        .stats-panel {
+            grid-column: 1 / -1;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-card {
+            background: rgba(17, 24, 39, 0.8);
+            border-radius: 8px;
+            padding: 15px;
+            border-left: 4px solid var(--primary);
+        }
+        
+        .stat-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        
+        .stat-label {
+            color: var(--gray);
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+        
+        .log-container {
+            height: 300px;
+            overflow-y: auto;
+            background: rgba(17, 24, 39, 0.8);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+        }
+        
+        .log-entry {
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(55, 65, 81, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .log-entry.success {
+            border-left: 3px solid var(--primary);
+        }
+        
+        .log-entry.error {
+            border-left: 3px solid var(--danger);
+        }
+        
+        .log-time {
+            color: var(--gray);
+            min-width: 80px;
+        }
+        
+        .log-message {
+            flex: 1;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-online {
+            background-color: var(--primary);
+            box-shadow: 0 0 10px var(--primary);
+        }
+        
+        .status-offline {
+            background-color: var(--danger);
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            color: var(--gray);
+            font-size: 0.9rem;
+            border-top: 1px solid var(--border);
+        }
+        
+        .warning {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #fca5a5;
+        }
+        
+        .stealth-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .stealth-item {
+            background: rgba(16, 185, 129, 0.1);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">NOXA TERMINAL v3.0</div>
+            <div class="subtitle">Visitor Booster & Traffic Generator • Undetectable Bot System</div>
+        </header>
+        
+        <div class="warning">
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>PENGGUNAAN BERTANGGUNG JAWAB:</strong> Tool ini untuk testing keamanan website sendiri atau dengan izin pemilik website.
+        </div>
+        
+        <div class="main-content">
+            <div class="panel">
+                <div class="panel-title">
+                    <i class="fas fa-crosshairs"></i>
+                    TARGET CONFIGURATION
+                </div>
+                
+                <div class="form-group">
+                    <label for="targetUrl">
+                        <i class="fas fa-link"></i>
+                        Target URL
+                    </label>
+                    <input type="url" id="targetUrl" 
+                           placeholder="https://target-website.com" 
+                           value="https://">
+                </div>
+                
+                <div class="form-group">
+                    <label for="intensity">
+                        <i class="fas fa-bolt"></i>
+                        Attack Intensity (Requests/Second)
+                    </label>
+                    <div class="range-container">
+                        <input type="range" id="intensity" min="10" max="500" value="100">
+                        <div class="range-value" id="intensityValue">100</div>
+                    </div>
+                    <div style="font-size: 0.85rem; color: var(--gray); margin-top: 5px;">
+                        Low: 10-50 • Medium: 50-200 • High: 200-500
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="duration">
+                        <i class="fas fa-clock"></i>
+                        Duration (Seconds)
+                    </label>
+                    <select id="duration">
+                        <option value="30">30 Seconds</option>
+                        <option value="60" selected>1 Minute</option>
+                        <option value="300">5 Minutes</option>
+                        <option value="600">10 Minutes</option>
+                        <option value="1800">30 Minutes</option>
+                        <option value="3600">1 Hour</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <i class="fas fa-user-secret"></i>
+                        Stealth Features (Auto-enabled)
+                    </label>
+                    <div class="stealth-info">
+                        <div class="stealth-item">User Agent Rotation</div>
+                        <div class="stealth-item">Proxy Chain</div>
+                        <div class="stealth-item">IP Spoofing</div>
+                        <div class="stealth-item">Random Delays</div>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 15px; margin-top: 30px;">
+                    <button class="btn btn-primary" id="startBtn" onclick="startAttack()">
+                        <i class="fas fa-play"></i>
+                        LAUNCH ATTACK
+                    </button>
+                    <button class="btn btn-danger" id="stopBtn" onclick="stopAttack()" disabled>
+                        <i class="fas fa-stop"></i>
+                        STOP ATTACK
+                    </button>
+                </div>
+            </div>
+            
+            <div class="panel">
+                <div class="panel-title">
+                    <i class="fas fa-chart-line"></i>
+                    REAL-TIME MONITOR
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                        <span class="status-indicator status-online" id="statusIndicator"></span>
+                        <span id="statusText">System Ready</span>
+                    </div>
+                    <div id="currentAttack">No active attack</div>
+                </div>
+                
+                <div class="stats-grid" id="statsGrid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="statRequests">0</div>
+                        <div class="stat-label">Requests Sent</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statSuccess">0</div>
+                        <div class="stat-label">Success Rate</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statDuration">0s</div>
+                        <div class="stat-label">Duration</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statSpeed">0/s</div>
+                        <div class="stat-label">Request Speed</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel stats-panel">
+                <div class="panel-title">
+                    <i class="fas fa-terminal"></i>
+                    ATTACK LOGS
+                </div>
+                <div class="log-container" id="logContainer">
+                    <div class="log-entry success">
+                        <span class="log-time">[00:00:00]</span>
+                        <span class="log-message">System initialized. Ready for attack.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <div>NOXA TERMINAL v3.0 • Serverless DDoS Panel • Powered by Vercel</div>
+            <div style="margin-top: 10px; font-size: 0.8rem; color: #4b5563;">
+                This tool is for educational and authorized security testing only.
+            </div>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+              </html>
