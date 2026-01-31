@@ -1,7 +1,7 @@
 {
-  "name": "ddos-visitor-booster",
-  "version": "3.0.0",
-  "description": "Website Traffic Booster - Visitor Simulation Tool",
+  "name": "noxa-visitor-booster",
+  "version": "4.0.0",
+  "description": "Advanced Traffic Generation & SEO Booster Tool",
   "main": "api/attack.js",
   "scripts": {
     "start": "node api/attack.js",
@@ -18,11 +18,11 @@
     "https-proxy-agent": "^7.0.0",
     "socket.io": "^4.7.2",
     "redis": "^4.6.7",
-    "rate-limiter-flexible": "^3.0.8"
+    "rate-limiter-flexible": "^2.4.2"
   },
   "engines": {
-    "node": "24.x"
+    "node": "22.x"
   },
-  "author": "zamxs",
+  "author": "NOXA Security Labs",
   "license": "MIT"
 }
