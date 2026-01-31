@@ -4,18 +4,6 @@
     {
       "src": "api/index.js",
       "use": "@vercel/node"
-    },
-    {
-      "src": "api/attack.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/status.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "public/**/*",
-      "use": "@vercel/static"
     }
   ],
   "routes": [
@@ -25,26 +13,36 @@
     },
     {
       "src": "/api/attack",
-      "dest": "/api/attack.js"
+      "dest": "/api/index.js",
+      "methods": ["POST", "OPTIONS"]
     },
     {
       "src": "/api/status",
-      "dest": "/api/status.js"
+      "dest": "/api/index.js",
+      "methods": ["GET"]
+    },
+    {
+      "src": "/api/status/(?<id>[^/]+)",
+      "dest": "/api/index.js?id=$1",
+      "methods": ["GET"]
     },
     {
       "src": "/api/system",
-      "dest": "/api/status.js"
+      "dest": "/api/index.js",
+      "methods": ["GET"]
     },
     {
       "src": "/api",
-      "dest": "/api/index.js"
+      "dest": "/api/index.js",
+      "methods": ["GET"]
+    },
+    {
+      "src": "/(.*\\.(css|js|png|jpg|ico|svg))",
+      "dest": "/public/$1"
     },
     {
       "src": "/(.*)",
-      "dest": "/public/$1"
+      "dest": "/public/index.html"
     }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  ]
 }
