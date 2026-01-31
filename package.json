@@ -1,7 +1,6 @@
 {
-  "name": "noxa-ddos-pro",
-  "version": "7.0.0",
-  "description": "NOXA DDoS Panel with Upstash Redis",
+  "name": "noxa-ddos-panel",
+  "version": "8.0.0",
   "main": "api/index.js",
   "scripts": {
     "start": "node api/index.js",
@@ -15,7 +14,5 @@
   },
   "engines": {
     "node": "22.x"
-  },
-  "author": "NOXA Terminal",
-  "license": "MIT"
+  }
 }
