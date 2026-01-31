@@ -3,10 +3,7 @@
   "builds": [
     {
       "src": "api/index.js",
-      "use": "@vercel/node",
-      "config": {
-        "maxLambdaSize": "50mb"
-      }
+      "use": "@vercel/node"
     },
     {
       "src": "api/attack.js",
@@ -24,69 +21,30 @@
   "routes": [
     {
       "src": "/",
-      "dest": "/public/index.html",
-      "headers": {
-        "Cache-Control": "public, max-age=3600"
-      }
+      "dest": "/public/index.html"
+    },
+    {
+      "src": "/api/attack",
+      "dest": "/api/attack.js"
+    },
+    {
+      "src": "/api/status",
+      "dest": "/api/status.js"
+    },
+    {
+      "src": "/api/system",
+      "dest": "/api/status.js"
     },
     {
       "src": "/api",
       "dest": "/api/index.js"
     },
     {
-      "src": "/api/attack",
-      "dest": "/api/attack.js",
-      "methods": ["GET", "POST", "OPTIONS"]
-    },
-    {
-      "src": "/api/status",
-      "dest": "/api/status.js",
-      "methods": ["GET", "OPTIONS"]
-    },
-    {
-      "src": "/api/status/(?<id>[^/]+)",
-      "dest": "/api/status.js?id=$id",
-      "methods": ["GET"]
-    },
-    {
-      "src": "/api/stop/(?<id>[^/]+)",
-      "dest": "/api/attack.js?action=stop&id=$id",
-      "methods": ["POST"]
-    },
-    {
-      "src": "/api/system",
-      "dest": "/api/status.js?action=system",
-      "methods": ["GET"]
-    },
-    {
-      "src": "/(.*\\.(css|js|png|jpg|ico|svg))",
-      "dest": "/public/$1",
-      "headers": {
-        "Cache-Control": "public, max-age=86400"
-      }
-    },
-    {
       "src": "/(.*)",
-      "dest": "/public/index.html"
+      "dest": "/public/$1"
     }
   ],
   "env": {
-    "NODE_ENV": "production",
-    "REDIS_URL": "redis://default:redispw@localhost:6379"
-  },
-  "regions": ["sin1"],
-  "functions": {
-    "api/index.js": {
-      "maxDuration": 60,
-      "memory": 1024
-    },
-    "api/attack.js": {
-      "maxDuration": 60,
-      "memory": 1024
-    },
-    "api/status.js": {
-      "maxDuration": 30,
-      "memory": 512
-    }
+    "NODE_ENV": "production"
   }
 }
